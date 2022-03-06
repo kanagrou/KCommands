@@ -14,7 +14,7 @@ interface ICommandManager {
     prefix: string,
     guild?: string,
     owners: string[],
-    noUpdates: boolean
+    noUpdates?: boolean
 }
 
 export default class CommandManager {
