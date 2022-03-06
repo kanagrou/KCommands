@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "target": "esnext",
+        "module": "CommonJS",
+        "strict": true,
+        "skipLibCheck": true,
+        "resolveJsonModule": true,
+        "declaration": true,
+        "outDir": "dist"
+    },
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
+}
