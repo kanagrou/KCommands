@@ -2,10 +2,10 @@
 Command handler for [Discord.js](https://discord.js.org/)
 
 
-## What
+## About
 Handle slash commands or legacy commands in the easiest way possible.
 
-## How
+## Get Started
 
 ### Install the package in your project
 ```bash
