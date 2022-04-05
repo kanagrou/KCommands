@@ -34,11 +34,12 @@ export default {
 	slash: true,
 	
 	options: `message<string>[Message to echo.](required) &
-			  channel<channel>[Channel to send the message in.](channeltypes:0)`
+			channel<channel>[Channel to send the message in.](channeltypes:0)`
 	
 	listener: async ({interaction}, {message, channel}) => {
 		if (channel) await channel.send(message)
 		else interaction.channel.send(message)
+		return "Sent!"
 	}		  
 }
 ```

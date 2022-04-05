@@ -1,19 +1,16 @@
-/// <reference types="node" />
 import { Client } from 'discord.js';
 import KCommand from './command';
-import { EventEmitter } from 'events';
 import SlashCommandManager from './slashapi';
 interface ICommandManager {
     dir: string;
     prefix: string;
     guild?: string;
     owners: string[];
-    noUpdates: boolean;
+    noUpdates?: boolean;
 }
 export default class CommandManager {
     #private;
     client: Client;
-    emitter: EventEmitter;
     dir: string;
     prefix: string;
     testGuildId?: string;

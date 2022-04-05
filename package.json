@@ -1,6 +1,6 @@
 {
   "name": "@kanagrou/kcommands",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Command library for DiscordJS 13",
   "scripts": {
     "prepublish": "tsc"

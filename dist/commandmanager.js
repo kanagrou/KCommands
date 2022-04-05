@@ -3,11 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const path = require("path");
 const fs = require("fs");
 const parser_1 = require("./parser");
-const events_1 = require("events");
 const slashapi_1 = require("./slashapi");
 class CommandManager {
     client;
-    emitter;
     dir;
     prefix;
     testGuildId;
@@ -17,7 +15,6 @@ class CommandManager {
     commands;
     constructor(client, { dir, prefix, guild, owners, noUpdates }) {
         this.client = client;
-        this.emitter = new events_1.EventEmitter();
         this.dir = dir;
         this.prefix = prefix;
         this.testGuildId = guild;
@@ -31,41 +28,6 @@ class CommandManager {
     }
     async loadExtension(name) {
         const command = (await Promise.resolve().then(() => require(path.join(this.dir, name)))).default;
-        const resctrictedFilter = ({ interaction, message }) => {
-            if (!this.owners)
-                throw new Error(`Command ${command.name} restricted without owners specified`);
-            if (interaction)
-                if (this.owners.includes(interaction.user.id))
-                    return true;
-            if (message)
-                if (this.owners.includes(message.author.id))
-                    return true;
-            return false;
-        };
-        const addSlashListener = (listener, command_name, sub, group) => {
-            if (command.restricted)
-                this.emitter.on('$SLASH' + command_name + (group ? `$GROUP${group}` : '') + (sub ? `$SUB${sub}` : ''), (args, options) => { try {
-                    if (resctrictedFilter({ interaction: args.interaction }))
-                        listener(args, options);
-                }
-                catch (err) {
-                    console.error(err);
-                } });
-            else
-                this.emitter.on('$SLASH' + command_name + (group ? `$GROUP${group}` : '') + (sub ? `$SUB${sub}` : ''), (args, options) => { try {
-                    listener(args, options);
-                }
-                catch (err) {
-                    console.error(err);
-                } });
-        };
-        const addLegacyListener = (listener, command_name) => {
-            if (command.restricted)
-                this.emitter.on('$LEGACY' + command_name, (args, options) => { if (resctrictedFilter({ interaction: args.interaction }))
-                    listener(args, options); });
-            else
-                this.emitter.on('$LEGACY' + command_name, listener);
-        };
         if (!command.slash && !command.legacy)
             throw new Error(`Command type cannot be \`Not legacy\` and \`Not slash\``);
         if (command.slash)
@@ -73,52 +35,76 @@ class CommandManager {
                 await this.#registerGuildSlashCommand(parser_1.default.parseSlashCommand(command, this.testGuildId));
             else
                 await this.#registerGlobalSlashCommand(parser_1.default.parseSlashCommand(command));
-        if (command.listener) {
-            if (command.slash)
-                addSlashListener(command.listener, command.name);
-            if (command.legacy)
-                addLegacyListener(command.listener, command.name);
-        }
-        if (command.slash) {
-            if (command.subListeners)
-                for (const [subname, listener] of Object.entries(command.subListeners))
-                    addSlashListener(listener, command.name, subname);
-            if (command.groupListeners)
-                for (const [groupname, subListeners] of Object.entries(command.groupListeners))
-                    for (const [subname, listener] of Object.entries(subListeners))
-                        addSlashListener(listener, command.name, subname, groupname);
-        }
         this.commands.push(command);
     }
     async #interactionHandler(interaction) {
         if (!interaction.isCommand())
             return;
+        const restrictedFilter = ({ interaction, message }) => {
+            if (!this.owners)
+                return false;
+            if (interaction && this.owners.includes(interaction.user.id))
+                return true;
+            if (message && this.owners.includes(message.author.id))
+                return true;
+            return false;
+        };
         const getParsedOptions = (options, sub, group) => {
             const parsed_options = parser_1.default.parseInteractionOptions(options);
             return (group && sub) ? parsed_options[group][sub] || {} : (sub ? parsed_options[sub] || {} : parsed_options || {});
         };
-        const emitListener = (options_data, command, sub, group) => {
-            this.emitter.emit('$SLASH' + command + (group ? `$GROUP${group}` : '') + (sub ? `$SUB${sub}` : ''), { client: this.client, interaction: interaction, channel: interaction.channel, guild: interaction.guild, user: interaction.user }, getParsedOptions(options_data, sub, group));
-        };
-        emitListener(interaction.options.data, interaction.commandName, interaction.options.getSubcommand(false), interaction.options.getSubcommandGroup(false));
+        const [sub, group] = [interaction.options.getSubcommand(false), interaction.options.getSubcommandGroup(false)];
+        const params = { interaction, client: this.client, channel: interaction.channel, guild: interaction.guild };
+        const options = getParsedOptions(interaction.options.data, sub, group);
+        this.commands.filter(e => e.name == interaction.commandName &&
+            e.slash == true &&
+            (this.testGuildId === interaction.command?.guildId || !e.guildOnly)).forEach(async (command) => {
+            let result;
+            if (command.restricted && !restrictedFilter({ interaction }))
+                return;
+            if (sub && group && command.groupListeners && command.groupListeners[group][sub])
+                result = await command.groupListeners[group][sub](params, options);
+            else if (sub && !group && command.subListeners && command.subListeners[sub])
+                result = await command.subListeners[sub](params, options);
+            else if (!sub && !group && command.listener)
+                result = await command.listener(params, options);
+            if (result && !interaction.replied)
+                await interaction.reply(result);
+        });
     }
     async #messageHandler(message) {
         if (!message.content.startsWith(this.prefix) || message.type != "DEFAULT" || message.author.bot)
             return;
-        const emitListener = (command, options) => {
-            this.emitter.emit('$LEGACY' + command, { message: message, channel: message.channel, guild: message.guild, user: message.author, legacyOptions: options });
+        const restrictedFilter = ({ interaction, message }) => {
+            if (!this.owners)
+                return false;
+            if (interaction && this.owners.includes(interaction.user.id))
+                return true;
+            if (message && this.owners.includes(message.author.id))
+                return true;
+            return false;
         };
-        const parsed_content = message.content.split(' ');
-        const name = parsed_content[0].replace(this.prefix, '');
-        const options = parsed_content.slice(1);
-        if (options)
-            emitListener(name, options);
+        const messageContent = message.content.slice(this.prefix.length);
+        const commandName = messageContent.match(/^[^ ]*/)[0];
+        if (!commandName)
+            return;
+        // const parsed_content = message.content.split(' ')
+        // const options = parsed_content.slice(1);
+        this.commands.filter(e => e.name == commandName &&
+            e.legacy == true &&
+            (this.testGuildId === message.guildId || !e.guildOnly)).forEach(command => {
+            if (command.restricted && !restrictedFilter({ message }))
+                return;
+            // throw new Error("No legacy command support")
+        });
     }
     async #readyHandler() {
         this.slashCommandManager = new slashapi_1.default(this.client, this.testGuildId);
+        // Load all commands from directory
         let commandFiles = fs.readdirSync(this.dir);
         for (const file of commandFiles)
             await this.loadExtension(file);
+        // Remove unwanted registered commands
         const registered_guild_commands = await this.slashCommandManager.getGuildCommands();
         const loaded_guild_commands = this.commands.filter(c => c.guildOnly).map(c => c.name);
         for (const registered_command of registered_guild_commands)

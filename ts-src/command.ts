@@ -1,7 +1,7 @@
-import { Client, CommandInteraction, Guild, Message, TextChannel } from 'discord.js'
+import { Client, CommandInteraction, Guild, Message, ReplyMessageOptions, TextChannel } from 'discord.js'
 import { ISlashCommand } from './slashtypes';
 
-export type TListener = (args:IListener, options?:IListenerOptions) => Promise<void>;
+export type TListener = (args:IListener, options?:IListenerOptions) => Promise<void | string | ReplyMessageOptions>;
 type TSubListener = {[SubCommandName:string]: TListener};
 type TGroupListener = {[GroupCommandName: string]: TSubListener};
 
@@ -10,8 +10,7 @@ interface IListener {
     message?: Message,
     interaction?: CommandInteraction,
     channel: TextChannel,
-    guild: Guild,
-    legacyOptions: string[]
+    guild: Guild | null
 }
 
 export interface IListenerOptions {
@@ -22,6 +21,7 @@ export default interface Command {
     name: string,
     description: string,
     options?: string,
+    legacyOptions?: string,
     guildOnly?: boolean,
     legacy?: boolean,
     slash?: boolean,
