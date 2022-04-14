@@ -1,7 +1,8 @@
 import { CommandInteraction, MessageActionRow, MessageComponentInteraction } from 'discord.js';
 import Button from './button';
+import Select from './select';
 
-interface IComponentRow extends Array<Button> {}
+interface IComponentRow extends Array<Button | Select> {}
 
 interface IComponents {
     rows: IComponentRow[]
@@ -31,7 +32,7 @@ export default class Components {
         return _rows;
     }
 
-    rowOf(id: string)
+    #rowOf(id: string)
     {
         const components = this.make();
         for (let i=0;i<components.length;i++)
@@ -40,7 +41,7 @@ export default class Components {
                     return i;
         return -1;
     }
-    colOf(id: string)
+    #colOf(id: string)
     {
         const components = this.make();
         for (let i=0;i<components.length;i++)
@@ -50,7 +51,7 @@ export default class Components {
         return -1; 
     }
 
-    equal(other: MessageActionRow[])
+    #equal(other: MessageActionRow[])
     {
         if (!other) return false;
         const components = this.make();
@@ -74,7 +75,7 @@ export default class Components {
             for (const component of row)
             {
                 const filter = (interaction: MessageComponentInteraction) => 
-                    Boolean(component.url) || ((!component.restricted || this.interaction.user.id === interaction.user.id) && 
+                    Boolean((component as Button).url) || ((!component.restricted || this.interaction.user.id === interaction.user.id) && 
                     interaction.customId == component.id)
 
                 const collector = this.interaction.channel
@@ -85,10 +86,10 @@ export default class Components {
                 });
 
                 collector.on('end', async (collection) => {
-                    if (this.equal((await this.interaction.fetchReply())?.components as MessageActionRow[]))
+                    if (this.#equal((await this.interaction.fetchReply())?.components as MessageActionRow[]))
                     {
-                        const compRow = this.rowOf(component.id);
-                        const compCol = this.colOf(component.id);
+                        const compRow = this.#rowOf(component.id);
+                        const compCol = this.#colOf(component.id);
                         if (compRow != -1 && compCol != -1)
                         {
                             let newComponents = this.make();

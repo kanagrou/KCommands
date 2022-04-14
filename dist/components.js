@@ -18,7 +18,7 @@ class Components {
         }
         return _rows;
     }
-    rowOf(id) {
+    #rowOf(id) {
         const components = this.make();
         for (let i = 0; i < components.length; i++)
             for (let j = 0; j < components[i].components.length; j++)
@@ -26,7 +26,7 @@ class Components {
                     return i;
         return -1;
     }
-    colOf(id) {
+    #colOf(id) {
         const components = this.make();
         for (let i = 0; i < components.length; i++)
             for (let j = 0; j < components[i].components.length; j++)
@@ -34,7 +34,7 @@ class Components {
                     return j;
         return -1;
     }
-    equal(other) {
+    #equal(other) {
         if (!other)
             return false;
         const components = this.make();
@@ -61,9 +61,9 @@ class Components {
                     max: component.restraint
                 });
                 collector.on('end', async (collection) => {
-                    if (this.equal((await this.interaction.fetchReply())?.components)) {
-                        const compRow = this.rowOf(component.id);
-                        const compCol = this.colOf(component.id);
+                    if (this.#equal((await this.interaction.fetchReply())?.components)) {
+                        const compRow = this.#rowOf(component.id);
+                        const compCol = this.#colOf(component.id);
                         if (compRow != -1 && compCol != -1) {
                             let newComponents = this.make();
                             newComponents[compRow].components[compCol].setDisabled(true);
